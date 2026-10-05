@@ -1,0 +1,9 @@
+{
+    "python.defaultInterpreterPath": "C:\\Users\\DELL\\AppData\\Local\\pypoetry\\Cache\\virtualenvs\\rag-app-backend-6I-rKSlX-py3.11\\Scripts\\python.exe",
+    "python.formatting.provider": "black",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+        "source.organizeImports": true,
+        "source.fixAll": true
+    }
+}
