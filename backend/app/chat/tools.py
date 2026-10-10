@@ -38,7 +38,7 @@ def describe_financials(financials: StockFinancial) -> str:
         f"For {company} in fiscal year {fiscal_year} covering the period {fiscal_period}:"
     )
 
-    income_statement = financials.financials.income_statement
+    income_statement = financials.financials.income_statement if financials.financials else None
 
     if income_statement:
         revenues = income_statement.revenues
@@ -56,14 +56,18 @@ def describe_financials(financials: StockFinancial) -> str:
             gross_profit_str = f"{gross_profit.value} {gross_profit.unit}"
             sentences.append(f"Gross profit was {gross_profit_str}.")
 
-    net_income = (
-        financials.financials.comprehensive_income.comprehensive_income_loss_attributable_to_parent
+    comprehensive_income = (
+        financials.financials.comprehensive_income if financials.financials else None
     )
-    if net_income:
-        net_income_str = f"{net_income.label}: {net_income.value} {net_income.unit}"
-        sentences.append(f"Net income was {net_income_str}.")
+    if comprehensive_income:
+        net_income = (
+            comprehensive_income.comprehensive_income_loss_attributable_to_parent
+        )
+        if net_income:
+            net_income_str = f"{net_income.label}: {net_income.value} {net_income.unit}"
+            sentences.append(f"Net income was {net_income_str}.")
 
-    cash_flows = financials.financials.cash_flow_statement
+    cash_flows = financials.financials.cash_flow_statement if financials.financials else None
     if cash_flows:
         operating_cash_flows = cash_flows.net_cash_flow
         if operating_cash_flows:
@@ -89,13 +93,14 @@ def get_tool_metadata_for_document(doc: DocumentSchema) -> ToolMetadata:
 
 
 def get_polygon_io_sec_tool(document: DocumentSchema) -> FunctionTool:
+    metadata_map = document.metadata_map or {}
     metadata_key = (
         DocumentMetadataKeysEnum.RAG_DOCUMENT
-        if DocumentMetadataKeysEnum.RAG_DOCUMENT in document.metadata_map
+        if DocumentMetadataKeysEnum.RAG_DOCUMENT in metadata_map
         else DocumentMetadataKeysEnum.SEC_DOCUMENT
     )
-    sec_metadata = SecDocumentMetadata.parse_obj(
-        document.metadata_map[metadata_key]
+    sec_metadata = SecDocumentMetadata.model_validate(
+        metadata_map[metadata_key]
     )
     tool_metadata = get_tool_metadata_for_document(document)
 
@@ -109,9 +114,14 @@ def get_polygon_io_sec_tool(document: DocumentSchema) -> FunctionTool:
                 use_async=True,
             )
             client = cast(AsyncReferenceClient, client)
+            period_of_report_date = (
+                str(sec_metadata.period_of_report_date.date())
+                if sec_metadata.period_of_report_date is not None
+                else None
+            )
             response_dict = await client.get_stock_financials_vx(
                 ticker=sec_metadata.company_ticker,
-                period_of_report_date=str(sec_metadata.period_of_report_date.date()),
+                period_of_report_date=period_of_report_date,
                 limit=100,  # max limit is 100
             )
             stock_financials = []

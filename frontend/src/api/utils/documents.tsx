@@ -23,7 +23,7 @@ export const fromBackendDocumentToFrontend = (
     const colorIndex = index < 10 ? index : 0;
     return {
       id: backendDoc.id,
-      url: backendDoc.url,
+      url: `/api/pdf/${backendDoc.id}`,
       ticker: docMeta.company_ticker,
       fullName: docMeta.company_name,
       year: String(docMeta.year),

@@ -5,7 +5,7 @@ loader_io_router = APIRouter()
 
 
 @loader_io_router.get("/")
-async def get_verification_file() -> str:
+async def get_verification_file() -> Response:
     """
     Verification string for loader.io
     """

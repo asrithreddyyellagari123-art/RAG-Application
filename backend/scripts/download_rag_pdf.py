@@ -1,12 +1,19 @@
+import sys
 from pathlib import Path
+
+# Add backend directory to sys.path for direct script execution
+_backend_dir = str(Path(__file__).resolve().parent.parent)
+if _backend_dir not in sys.path:
+    sys.path.insert(0, _backend_dir)
+
 from typing import List, Optional
 
 import pdfkit
-from file_utils import filing_exists
+from scripts.file_utils import filing_exists
 from fire import Fire
 from sec_edgar_downloader import Downloader
 from distutils.spawn import find_executable
-from tqdm.contrib.itertools import product
+from tqdm.contrib.itertools import product  # type: ignore
 from app.core.config import settings
 
 DEFAULT_OUTPUT_DIR = "data/"

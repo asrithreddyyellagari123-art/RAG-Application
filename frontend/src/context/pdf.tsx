@@ -5,6 +5,7 @@ interface PdfFocusState {
   documentId: string;
   pageNumber: number;
   citation?: Citation;
+  timestamp?: number;
 }
 
 interface PdfFocusContextProps {

@@ -82,7 +82,7 @@ class Settings(PreviewPrefixedSettings):
         return self.LOG_LEVEL == "DEBUG" or self.IS_PULL_REQUEST or not self.RENDER
 
     @property
-    def S3_ENDPOINT_URL(self) -> str:
+    def S3_ENDPOINT_URL(self) -> Optional[str]:
         """
         Used for setting S3 endpoint URL in the s3fs module.
         When running locally, this should be set to the localstack endpoint.
@@ -101,7 +101,7 @@ class Settings(PreviewPrefixedSettings):
     def assemble_db_url(cls, v: str) -> str:
         """Preprocesses the database URL to make it compatible with asyncpg."""
         if not v or not v.startswith("postgres"):
-            raise ValueError("Invalid database URL: " + str(v))
+            raise ValueError("Invalid database URL: " + v)
         return (
             v.replace("postgres://", "postgresql://")
             .replace("postgresql://", "postgresql+asyncpg://")
@@ -113,7 +113,7 @@ class Settings(PreviewPrefixedSettings):
         """Preprocesses the log level to ensure its validity."""
         v = v.strip().upper()
         if v not in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
-            raise ValueError("Invalid log level: " + str(v))
+            raise ValueError("Invalid log level: " + v)
         return v
 
     @field_validator("IS_PULL_REQUEST", mode='before')

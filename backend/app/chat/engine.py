@@ -1,7 +1,7 @@
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, cast
 import logging
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 import s3fs
 from fsspec.asyn import AsyncFileSystem
 from llama_index.core import (
@@ -9,12 +9,12 @@ from llama_index.core import (
     StorageContext,
     load_indices_from_storage,
 )
-from llama_index.core.vector_stores.types import VectorStore
+from llama_index.core.vector_stores.types import BasePydanticVectorStore
 from tempfile import TemporaryDirectory
-import requests
+import requests  # type: ignore
 import nest_asyncio
 from datetime import timedelta
-from cachetools import cached, TTLCache
+from cachetools import cached, TTLCache  # type: ignore
 from llama_index.readers.file.docs.base import PDFReader
 from llama_index.core.schema import Document as LlamaIndexDocument
 from llama_index.core.chat_engine.types import ChatMessage
@@ -22,7 +22,7 @@ from llama_index.agent.openai import OpenAIAgent
 from llama_index.llms.openai import OpenAI
 from llama_index.core.base.llms.types import MessageRole
 from llama_index.core.callbacks.base import BaseCallbackHandler, CallbackManager
-from llama_index.core.tools import QueryEngineTool, ToolMetadata
+from llama_index.core.tools import BaseTool, QueryEngineTool, ToolMetadata
 from llama_index.core.query_engine import SubQuestionQueryEngine
 from llama_index.core.indices.query.base import BaseQueryEngine
 from llama_index.core.vector_stores.types import (
@@ -87,18 +87,19 @@ def fetch_and_read_document(
 
 
 def build_description_for_document(document: DocumentSchema) -> str:
+    metadata_map = document.metadata_map or {}
     metadata_key = (
         DocumentMetadataKeysEnum.RAG_DOCUMENT
-        if DocumentMetadataKeysEnum.RAG_DOCUMENT in document.metadata_map
+        if DocumentMetadataKeysEnum.RAG_DOCUMENT in metadata_map
         else (
             DocumentMetadataKeysEnum.SEC_DOCUMENT
-            if DocumentMetadataKeysEnum.SEC_DOCUMENT in document.metadata_map
+            if DocumentMetadataKeysEnum.SEC_DOCUMENT in metadata_map
             else None
         )
     )
     if metadata_key:
-        sec_metadata = SecDocumentMetadata.parse_obj(
-            document.metadata_map[metadata_key]
+        sec_metadata = SecDocumentMetadata.model_validate(
+            metadata_map[metadata_key]
         )
         time_period = (
             f"{sec_metadata.year} Q{sec_metadata.quarter}"
@@ -122,7 +123,7 @@ def index_to_query_engine(doc_id: str, index: VectorStoreIndex) -> BaseQueryEngi
     key=lambda *args, **kwargs: "global_storage_context",
 )
 def get_storage_context(
-    persist_dir: str, vector_store: VectorStore, fs: Optional[AsyncFileSystem] = None
+    persist_dir: str, vector_store: BasePydanticVectorStore, fs: Optional[AsyncFileSystem] = None
 ) -> StorageContext:
     logger.info("Creating new storage context.")
     return StorageContext.from_defaults(
@@ -155,7 +156,10 @@ async def build_doc_id_to_index_map(
             index_ids=index_ids,
             callback_manager=callback_manager,
         )
-        doc_id_to_index = dict(zip(index_ids, indices))
+        doc_id_to_index: Dict[str, VectorStoreIndex] = {
+            doc_id: cast(VectorStoreIndex, index)
+            for doc_id, index in zip(index_ids, indices)
+        }
         logger.debug("Loaded indices from storage.")
     except ValueError:
         logger.error(
@@ -165,7 +169,7 @@ async def build_doc_id_to_index_map(
         storage_context = StorageContext.from_defaults(
             persist_dir=persist_dir, vector_store=vector_store, fs=fs
         )
-        doc_id_to_index = {}
+        doc_id_to_index: Dict[str, VectorStoreIndex] = {}
         for doc in documents:
             llama_index_docs = fetch_and_read_document(doc)
             storage_context.docstore.add_documents(llama_index_docs)
@@ -196,7 +200,7 @@ def get_chat_history(
         if m.content.strip() and m.status == MessageStatusEnum.SUCCESS
     ]
     # TODO: could be a source of high CPU utilization
-    chat_messages = sorted(chat_messages, key=lambda m: m.created_at)
+    chat_messages = sorted(chat_messages, key=lambda m: m.created_at or datetime.min)
 
     chat_history = []
     for message in chat_messages:
@@ -214,7 +218,7 @@ async def get_chat_engine(
     callback_handler: BaseCallbackHandler,
     conversation: ConversationSchema,
 ) -> OpenAIAgent:
-    callback_manager = CallbackManager([callback_handler])
+    callback_manager = CallbackManager([callback_handler])  # type: ignore
     s3_fs = get_s3_fs()
     doc_id_to_index = await build_doc_id_to_index_map(
         callback_manager, conversation.documents, fs=s3_fs
@@ -246,8 +250,11 @@ async def get_chat_engine(
     api_query_engine_tools = [
         get_api_query_engine_tool(doc, callback_manager)
         for doc in conversation.documents
-        if DocumentMetadataKeysEnum.RAG_DOCUMENT in doc.metadata_map
-        or DocumentMetadataKeysEnum.SEC_DOCUMENT in doc.metadata_map
+        if doc.metadata_map is not None
+        and (
+            DocumentMetadataKeysEnum.RAG_DOCUMENT in doc.metadata_map
+            or DocumentMetadataKeysEnum.SEC_DOCUMENT in doc.metadata_map
+        )
     ]
 
     quantitative_question_engine = SubQuestionQueryEngine.from_defaults(
@@ -257,7 +264,7 @@ async def get_chat_engine(
         use_async=True,
     )
 
-    top_level_sub_tools = [
+    top_level_sub_tools: List[BaseTool] = [
         QueryEngineTool(
             query_engine=qualitative_question_engine,
             metadata=ToolMetadata(
@@ -297,7 +304,7 @@ Any questions about company-related financials or other metrics should be asked 
     else:
         doc_titles = "No documents selected."
 
-    curr_date = datetime.utcnow().strftime("%Y-%m-%d")
+    curr_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     chat_engine = OpenAIAgent.from_tools(
         tools=top_level_sub_tools,
         llm=chat_llm,

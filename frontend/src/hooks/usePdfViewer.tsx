@@ -29,20 +29,26 @@ const usePDFViewer = (file: SecDocument) => {
 
   const pdfFocusRef = React.useRef<PdfFocusHandler | null>(null);
 
-  const goToPage = (page: number) => {
+  const goToPage = useCallback((page: number) => {
     if (pdfFocusRef.current) {
       pdfFocusRef.current.scrollToPage(page);
+    } else {
+      setTimeout(() => {
+        if (pdfFocusRef.current) {
+          pdfFocusRef.current.scrollToPage(page);
+        }
+      }, 300);
     }
-  };
+  }, []);
 
   useEffect(() => {
     const activeDocumentId = pdfFocusState.documentId;
     if (activeDocumentId === file.id) {
-      if (pdfFocusState.pageNumber) {
+      if (pdfFocusState.pageNumber && pdfFocusState.pageNumber > 0) {
         goToPage(pdfFocusState.pageNumber - 1);
       }
     }
-  }, [file, pdfFocusState]);
+  }, [file.id, pdfFocusState, goToPage]);
 
   const setCurrentPageNumber = useCallback((n: number) => {
     setScrolledIndex(n);

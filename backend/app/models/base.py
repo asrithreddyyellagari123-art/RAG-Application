@@ -1,4 +1,5 @@
-from sqlalchemy import Column, DateTime, UUID
+from typing import ClassVar
+from sqlalchemy import Column, DateTime, UUID, MetaData
 
 from sqlalchemy.sql import func
 from sqlalchemy.ext.declarative import as_declarative, declared_attr
@@ -6,6 +7,7 @@ from sqlalchemy.ext.declarative import as_declarative, declared_attr
 
 @as_declarative()
 class Base:
+    metadata: ClassVar[MetaData]
     id = Column(UUID, primary_key=True, index=True, default=func.uuid_generate_v4())
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(

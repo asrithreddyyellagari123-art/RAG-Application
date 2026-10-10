@@ -28,12 +28,7 @@ import { multiHighlight } from "~/utils/multi-line-highlight";
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
 const pdfjsOptions = pdfjs.GlobalWorkerOptions;
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-const pdfjsVersion = pdfjs.version;
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-pdfjsOptions.workerSrc =
-  "//unpkg.com/pdfjs-dist@" +
-  String(pdfjsVersion) +
-  "/legacy/build/pdf.worker.min.js";
+pdfjsOptions.workerSrc = "/pdf.worker.min.js";
 
 interface PageType {
   getViewport: (arg0: { scale: number }) => { width: number };

@@ -18,28 +18,38 @@ interface CitationDisplayProps {
 const CitationDisplay: React.FC<CitationDisplayProps> = ({ citation }) => {
   const { setPdfFocusState } = usePdfFocus();
   const handleCitationClick = (documentId: string, pageNumber: number) => {
-    setPdfFocusState({ documentId, pageNumber, citation });
+    setPdfFocusState({
+      documentId,
+      pageNumber,
+      citation,
+      timestamp: Date.now(),
+    });
   };
 
   return (
     <div
-      className={`mx-1.5 mb-2 min-h-[25px] min-w-[160px] cursor-pointer rounded border-l-8 bg-gray-00 p-1 hover:bg-gray-15  ${
+      className={`mx-1.5 mb-2 min-h-[32px] min-w-[180px] max-w-[280px] cursor-pointer rounded border-l-8 bg-gray-00 p-2 shadow-sm transition hover:bg-gray-15 hover:shadow-md ${
         borderColors[citation.color]
       }`}
       onClick={() =>
         handleCitationClick(citation.documentId, citation.pageNumber)
       }
+      title={`Click to jump to page ${citation.pageNumber} in ${citation.ticker}`}
     >
-      <div className="flex items-center">
-        <div className="mr-1 text-xs font-bold text-black">
-          {citation.ticker}{" "}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center">
+          <div className="mr-1 text-xs font-bold text-black">
+            {citation.ticker}{" "}
+          </div>
+          <div className="mr-2 text-xs font-semibold text-gray-70">
+            ({citation.displayDate})
+          </div>
         </div>
-        <div className="mr-2 text-xs font-bold text-black">
-          ({citation.displayDate})
+        <div className="rounded bg-gray-20 px-1 text-[10px] font-bold text-gray-80">
+          p. {citation.pageNumber}
         </div>
-        <div className="text-[10px]">p. {citation.pageNumber}</div>
       </div>
-      <p className="line-clamp-2 text-[10px] font-light leading-3">
+      <p className="mt-1 line-clamp-2 text-[10px] font-light leading-3 text-gray-70">
         {citation.snippet}
       </p>
     </div>
@@ -244,9 +254,62 @@ const AssistantDisplay: React.FC<AssistantDisplayProps> = ({
   documents,
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
+  const { setPdfFocusState } = usePdfFocus();
+  const hasAutoFocusedRef = useRef(false);
 
   const isMessageSuccessful = message.status === MESSAGE_STATUS.SUCCESS;
   const isMessageError = message.status === MESSAGE_STATUS.ERROR;
+
+  // Extract all citations from message sub_processes
+  const citations: Citation[] = [];
+  message.sub_processes?.forEach((subProcess) => {
+    subProcess.metadata_map?.sub_questions?.forEach((subQuestion) => {
+      subQuestion.citations?.forEach((citation) => {
+        const citationDoc = documents.find(
+          (doc) => doc.id === citation.document_id
+        );
+        if (citationDoc) {
+          const yearDisplay = citationDoc.quarter
+            ? `${citationDoc.year} Q${citationDoc.quarter}`
+            : `${citationDoc.year}`;
+          const alreadyExists = citations.some(
+            (c) =>
+              c.documentId === citation.document_id &&
+              c.pageNumber === citation.page_number
+          );
+          if (!alreadyExists) {
+            citations.push({
+              documentId: citation.document_id,
+              snippet: citation.text,
+              pageNumber: citation.page_number,
+              ticker: citationDoc.ticker,
+              displayDate: yearDisplay,
+              color: citationDoc.color,
+            });
+          }
+        }
+      });
+    });
+  });
+
+  useEffect(() => {
+    if (
+      isMessageSuccessful &&
+      citations.length > 0 &&
+      !hasAutoFocusedRef.current
+    ) {
+      hasAutoFocusedRef.current = true;
+      const firstCitation = citations[0];
+      if (firstCitation) {
+        setPdfFocusState({
+          documentId: firstCitation.documentId,
+          pageNumber: firstCitation.pageNumber,
+          citation: firstCitation,
+          timestamp: Date.now(),
+        });
+      }
+    }
+  }, [isMessageSuccessful, citations, setPdfFocusState]);
 
   useEffect(() => {
     if (isMessageSuccessful) {
@@ -286,6 +349,28 @@ const AssistantDisplay: React.FC<AssistantDisplayProps> = ({
               <p className="relative mb-2 mt-2 pr-3 font-nunito whitespace-pre-wrap font-bold text-gray-90">
                 {message.content}
               </p>
+
+              {citations.length > 0 && (
+                <div className="my-3 mr-3 rounded-lg border border-gray-20 bg-gray-00/70 p-3 shadow-inner">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="flex items-center text-xs font-bold text-gray-80">
+                      <span className="mr-1.5">📄</span> Cited Source Passages ({citations.length}):
+                    </span>
+                    <span className="text-[11px] font-medium text-gray-50">
+                      Click any citation to jump &amp; highlight in document
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {citations.map((citation, idx) => (
+                      <CitationDisplay
+                        key={`${message.id}-answer-citation-${idx}`}
+                        citation={citation}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <p className="flex items-center justify-start p-1 text-xs text-gray-60">
                 This statement is for informational purposes only and does not
                 serve as professional financial advice. Please consult a

@@ -1,4 +1,4 @@
-from llama_index.core.vector_stores.types import VectorStore
+from llama_index.core.vector_stores.types import BasePydanticVectorStore
 from llama_index.vector_stores.postgres import PGVectorStore
 from sqlalchemy.engine import make_url
 from app.db.session import SessionLocal as AppSessionLocal, engine as app_engine
@@ -7,7 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.core.config import settings
 
-singleton_instance = None
+singleton_instance: BasePydanticVectorStore | None = None
 did_run_setup = False
 
 
@@ -54,14 +54,14 @@ class CustomPGVectorStore(PGVectorStore):
         did_run_setup = True
 
 
-async def get_vector_store_singleton() -> VectorStore:
+async def get_vector_store_singleton() -> BasePydanticVectorStore:
     global singleton_instance
     if singleton_instance is not None:
         return singleton_instance
     url = make_url(settings.DATABASE_URL)
     singleton_instance = CustomPGVectorStore.from_params(
         url.host,
-        url.port or 5432,
+        str(url.port or 5432),
         url.database,
         url.username,
         url.password,

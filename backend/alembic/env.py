@@ -21,17 +21,18 @@ if config.config_file_name is not None:
 # for 'autogenerate' support
 from app.db.base import Base  # noqa: E402
 
-target_metadata = Base.metadata
+target_metadata = getattr(Base, "metadata", None)
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
 db_url = config.get_main_option("sqlalchemy.url")
-if settings.DATABASE_URL.strip():
+if settings.DATABASE_URL and settings.DATABASE_URL.strip():
     db_url = settings.DATABASE_URL.strip()
     print(f"Using DATABASE_URL {db_url} from environment for migrations")
-config.set_main_option("sqlalchemy.url", db_url)
+if db_url is not None:
+    config.set_main_option("sqlalchemy.url", db_url)
 
 
 def run_migrations_offline() -> None:

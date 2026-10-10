@@ -1,12 +1,18 @@
+import sys
 from pathlib import Path
+
+# Add backend directory to sys.path for direct script execution
+_backend_dir = str(Path(__file__).resolve().parent.parent)
+if _backend_dir not in sys.path:
+    sys.path.insert(0, _backend_dir)
+
 from fire import Fire
-from tqdm import tqdm
+from tqdm import tqdm  # type: ignore
 import asyncio
 from pytickersymbols import PyTickerSymbols
-from file_utils import get_available_filings, Filing
-from stock_utils import get_stocks_by_symbol, Stock
+from scripts.file_utils import get_available_filings, Filing
+from scripts.stock_utils import get_stocks_by_symbol, Stock
 from fastapi.encoders import jsonable_encoder
-from app.models.db import Document
 from app.schema import (
     SecDocumentMetadata,
     DocumentMetadataMap,
@@ -45,10 +51,10 @@ async def upsert_document(doc_dir: str, stock: Stock, filing: Filing, url_base: 
     )
     metadata_map: DocumentMetadataMap = {
         DocumentMetadataKeysEnum.RAG_DOCUMENT: jsonable_encoder(
-            sec_doc_metadata.dict(exclude_none=True)
+            sec_doc_metadata.model_dump(exclude_none=True)
         )
     }
-    doc = Document(url=str(url_path), metadata_map=metadata_map)
+    doc = Document(url=url_path, metadata_map=metadata_map)
     async with SessionLocal() as db:
         await crud.upsert_document_by_url(db, doc)
 
@@ -59,7 +65,10 @@ async def async_upsert_documents_from_filings(url_base: str, doc_dir: str):
     """
     filings = get_available_filings(doc_dir)
     stocks_data = PyTickerSymbols()
-    stocks_dict = get_stocks_by_symbol(stocks_data.get_all_indices())
+    all_indices: list[str] = [
+        str(idx) for idx in stocks_data.get_all_indices() if isinstance(idx, str)
+    ]
+    stocks_dict = get_stocks_by_symbol(all_indices)
     for filing in tqdm(filings, desc="Upserting docs from filings"):
         if filing.symbol not in stocks_dict:
             print(f"Symbol {filing.symbol} not found in stocks_dict. Skipping.")

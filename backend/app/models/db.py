@@ -22,16 +22,23 @@ class MessageSubProcessStatusEnum(str, Enum):
     FINISHED = "FINISHED"
 
 
-# python doesn't allow enums to be extended, so we have to do this
-additional_message_subprocess_fields = {
-    "CONSTRUCTED_QUERY_ENGINE": "constructed_query_engine",
-    "SUB_QUESTIONS": "sub_questions",
-}
-MessageSubProcessSourceEnum = Enum(
-    "MessageSubProcessSourceEnum",
-    [(event_type.name, event_type.value) for event_type in CBEventType]
-    + list(additional_message_subprocess_fields.items()),
-)
+class MessageSubProcessSourceEnum(str, Enum):
+    CHUNKING = "chunking"
+    NODE_PARSING = "node_parsing"
+    EMBEDDING = "embedding"
+    LLM = "llm"
+    QUERY = "query"
+    RETRIEVE = "retrieve"
+    SYNTHESIZE = "synthesize"
+    TREE = "tree"
+    SUB_QUESTION = "sub_question"
+    TEMPLATING = "templating"
+    FUNCTION_CALL = "function_call"
+    RERANKING = "reranking"
+    EXCEPTION = "exception"
+    AGENT_STEP = "agent_step"
+    CONSTRUCTED_QUERY_ENGINE = "constructed_query_engine"
+    SUB_QUESTIONS = "sub_questions"
 
 
 def to_pg_enum(enum_class) -> ENUM:

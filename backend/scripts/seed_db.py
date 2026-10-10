@@ -1,14 +1,21 @@
+import sys
+from pathlib import Path
+
+# Add backend directory to sys.path for direct script execution
+_backend_dir = str(Path(__file__).resolve().parent.parent)
+if _backend_dir not in sys.path:
+    sys.path.insert(0, _backend_dir)
+
 from typing import List
 import asyncio
 from tempfile import TemporaryDirectory
-from pathlib import Path
 from fire import Fire
 import s3fs
 from app.core.config import settings
-import upsert_db_rag_documents
-import download_rag_pdf
-from download_rag_pdf import DEFAULT_CIKS, DEFAULT_FILING_TYPES
-import seed_storage_context
+from scripts import upsert_db_rag_documents
+from scripts import download_rag_pdf
+from scripts.download_rag_pdf import DEFAULT_CIKS, DEFAULT_FILING_TYPES
+from scripts import seed_storage_context
 
 
 def copy_to_s3(dir_path: str, s3_bucket: str = settings.S3_ASSET_BUCKET_NAME):

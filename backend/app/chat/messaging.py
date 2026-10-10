@@ -45,6 +45,7 @@ class ChatCallbackHandler(BaseCallbackHandler):
         event_type: CBEventType,
         payload: Optional[Dict[str, Any]] = None,
         event_id: str = "",
+        parent_id: str = "",
         **kwargs: Any,
     ) -> str:
         """Create the MessageSubProcess row for the event that started."""
@@ -53,6 +54,7 @@ class ChatCallbackHandler(BaseCallbackHandler):
                 event_type, payload, event_id, is_start_event=True, **kwargs
             )
         )
+        return event_id
 
     def on_event_end(
         self,
@@ -78,12 +80,13 @@ class ChatCallbackHandler(BaseCallbackHandler):
 
         if (
             event_type == CBEventType.SUB_QUESTION
+            and payload is not None
             and EventPayload.SUB_QUESTION in payload
         ):
             sub_q: SubQuestionAnswerPair = payload[EventPayload.SUB_QUESTION]
             metadata_map[
                 SubProcessMetadataKeysEnum.SUB_QUESTION.value
-            ] = schema.QuestionAnswerPair.from_sub_question_answer_pair(sub_q).dict()
+            ] = schema.QuestionAnswerPair.from_sub_question_answer_pair(sub_q).model_dump()
         return metadata_map
 
     async def async_on_event(
